@@ -1,5 +1,3 @@
-Server:
-  ReadTimeout: 10
-  WriteTimeout: 10
-  IdleTimeout: 10
-  MaxHeaderBytes: 131072
+ReadTimeout: 10
+WriteTimeout: 10
+MaxHeaderBytes: 131072
