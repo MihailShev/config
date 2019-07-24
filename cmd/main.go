@@ -10,8 +10,6 @@ import (
 	"go.uber.org/zap"
 )
 
-var slogger *zap.SugaredLogger
-
 func mainRoute(w http.ResponseWriter, req *http.Request) {
 	_, _ = fmt.Fprintf(w, "Hello!")
 }
@@ -24,20 +22,28 @@ func initConfig() {
 	config.ReadConfig()
 }
 
+var logger *zap.Logger
+
 func initLogger() {
-	logger, err := zap.NewDevelopment()
+	var err error
+
+	env := config.GetEnv()
+
+	if env == config.EnvironmentType.Dev {
+		logger, err = zap.NewDevelopment()
+	} else {
+		logger, err = zap.NewProduction()
+	}
 
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	slogger = logger.Sugar()
 }
 
 func main() {
 	initConfig()
 	initLogger()
-	defer slogger.Sync()
+	defer logger.Sync()
 
 	conf := config.GetConfig()
 
@@ -50,10 +56,11 @@ func main() {
 
 	http.HandleFunc("/", mainRoute)
 	http.HandleFunc("/test", testRouter)
+	logger.Debug("", zap.String("env", config.GetEnv()))
 
 	err := server.ListenAndServe()
 
 	if err != nil {
-		slogger.Fatal(err)
+		logger.Fatal("Failed to start server", zap.Error(err))
 	}
 }

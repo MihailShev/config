@@ -1,7 +1,6 @@
 package config
 
 import (
-	"fmt"
 	"github.com/spf13/viper"
 	"log"
 	"time"
@@ -15,17 +14,37 @@ type Config struct {
 }
 
 const (
-	prefix        = "FRAME"
-	environment   = "env"
+	prefix        = "frame"
+	envVar        = "env"
 	defaultConfig = "default"
 	configPath    = "../config"
 )
 
 var conf = &Config{}
+var environment string
 
-var targetConfig = map[string]string{
-	"dev":  "dev",
-	"prod": "prod",
+var EnvironmentType = struct {
+	Dev  string
+	Prod string
+}{Dev: "DEV", Prod: "PROD"}
+
+func ReadConfig() {
+	viper.AddConfigPath(configPath)
+
+	readDefault()
+	readTargetConfig()
+}
+
+func defineEnv() {
+	viper.AutomaticEnv()
+	viper.SetEnvPrefix(prefix)
+	env := viper.GetString(envVar)
+
+	if env == EnvironmentType.Prod {
+		environment = EnvironmentType.Prod
+	} else {
+		environment = EnvironmentType.Dev
+	}
 }
 
 func readDefault() {
@@ -36,16 +55,9 @@ func readDefault() {
 }
 
 func readTargetConfig() {
-	env := viper.GetString(environment)
-	fmt.Println(env)
-	configName, ok := targetConfig[env]
-
-	if ok {
-		viper.SetConfigName(configName)
-		read()
-		unmarshal()
-	}
-
+	viper.SetConfigName(GetEnv())
+	read()
+	unmarshal()
 }
 
 func unmarshal() {
@@ -64,15 +76,14 @@ func read() {
 	}
 }
 
-func ReadConfig() {
-	viper.AddConfigPath(configPath)
-	viper.AutomaticEnv()
-	viper.SetEnvPrefix(prefix)
-
-	readDefault()
-	readTargetConfig()
-}
-
 func GetConfig() Config {
 	return *conf
+}
+
+func GetEnv() string {
+	if environment == "" {
+		defineEnv()
+	}
+
+	return environment
 }
