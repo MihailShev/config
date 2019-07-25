@@ -1,8 +1,7 @@
 package main
 
 import (
-	"fmt"
-	"frame/config"
+	"frame/pkg/config"
 	"log"
 	"net/http"
 	"time"
@@ -10,26 +9,29 @@ import (
 	"go.uber.org/zap"
 )
 
-func mainRoute(w http.ResponseWriter, req *http.Request) {
-	_, _ = fmt.Fprintf(w, "Hello!")
+func main() {
+	conf := config.GetConfig()
+	logger := makeLogger(conf.Environment)
+	defer logger.Sync()
+
+	server := makeServer(conf)
+
+	http.HandleFunc("/", makeRouter(logger))
+
+	logger.Sugar().Info("Server started at port", conf.Addr)
+
+	err := server.ListenAndServe()
+
+	if err != nil {
+		logger.Fatal("Failed to start server", zap.Error(err))
+	}
 }
 
-func testRouter(w http.ResponseWriter, req *http.Request) {
-	_, _ = fmt.Fprintf(w, "test")
-}
-
-func initConfig() {
-	config.ReadConfig()
-}
-
-var logger *zap.Logger
-
-func initLogger() {
+func makeLogger(env string) *zap.Logger {
 	var err error
+	var logger *zap.Logger
 
-	env := config.GetEnv()
-
-	if env == config.EnvironmentType.Dev {
+	if env == config.EnvType.Dev {
 		logger, err = zap.NewDevelopment()
 	} else {
 		logger, err = zap.NewProduction()
@@ -38,29 +40,15 @@ func initLogger() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	return logger
 }
 
-func main() {
-	initConfig()
-	initLogger()
-	defer logger.Sync()
-
-	conf := config.GetConfig()
-
-	server := &http.Server{
+func makeServer(conf config.Config) *http.Server {
+	return &http.Server{
 		Addr:           conf.Addr,
 		ReadTimeout:    conf.ReadTimeout * time.Second,
 		WriteTimeout:   conf.WriteTimeout * time.Second,
 		MaxHeaderBytes: conf.MaxHeaderBytes,
-	}
-
-	http.HandleFunc("/", mainRoute)
-	http.HandleFunc("/test", testRouter)
-	logger.Debug("", zap.String("env", config.GetEnv()))
-
-	err := server.ListenAndServe()
-
-	if err != nil {
-		logger.Fatal("Failed to start server", zap.Error(err))
 	}
 }

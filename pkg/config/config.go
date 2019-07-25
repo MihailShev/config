@@ -11,6 +11,7 @@ type Config struct {
 	ReadTimeout    time.Duration
 	WriteTimeout   time.Duration
 	MaxHeaderBytes int
+	Environment    string
 }
 
 const (
@@ -20,17 +21,27 @@ const (
 	configPath    = "../config"
 )
 
-var conf = &Config{}
-var environment string
-
-var EnvironmentType = struct {
+var EnvType = struct {
 	Dev  string
 	Prod string
 }{Dev: "DEV", Prod: "PROD"}
 
-func ReadConfig() {
-	viper.AddConfigPath(configPath)
+var configFiles = map[string]string{
+	EnvType.Dev:  "dev",
+	EnvType.Prod: "prod",
+}
 
+var conf = &Config{}
+
+func GetConfig() Config {
+	if conf.Environment == "" {
+		readConfig()
+	}
+	return *conf
+}
+
+func readConfig() {
+	defineEnv()
 	readDefault()
 	readTargetConfig()
 }
@@ -38,16 +49,19 @@ func ReadConfig() {
 func defineEnv() {
 	viper.AutomaticEnv()
 	viper.SetEnvPrefix(prefix)
+
 	env := viper.GetString(envVar)
 
-	if env == EnvironmentType.Prod {
-		environment = EnvironmentType.Prod
-	} else {
-		environment = EnvironmentType.Dev
+	switch env {
+	case EnvType.Prod:
+		conf.Environment = EnvType.Prod
+	default:
+		conf.Environment = EnvType.Dev
 	}
 }
 
 func readDefault() {
+	viper.AddConfigPath(configPath)
 	viper.SetConfigName(defaultConfig)
 
 	read()
@@ -55,9 +69,15 @@ func readDefault() {
 }
 
 func readTargetConfig() {
-	viper.SetConfigName(GetEnv())
-	read()
-	unmarshal()
+	configName, ok := configFiles[conf.Environment]
+
+	if ok {
+		viper.SetConfigName(configName)
+		read()
+		unmarshal()
+	} else {
+		log.Fatal("Cannot read target config", configName)
+	}
 }
 
 func unmarshal() {
@@ -74,16 +94,4 @@ func read() {
 	if err != nil {
 		log.Fatal(err)
 	}
-}
-
-func GetConfig() Config {
-	return *conf
-}
-
-func GetEnv() string {
-	if environment == "" {
-		defineEnv()
-	}
-
-	return environment
 }
