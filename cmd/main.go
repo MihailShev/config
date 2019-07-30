@@ -1,7 +1,8 @@
 package main
 
 import (
-	"frame/pkg/config"
+	"frame/config"
+	"frame/router"
 	"log"
 	"net/http"
 	"time"
@@ -16,7 +17,7 @@ func main() {
 
 	server := makeServer(conf)
 
-	http.HandleFunc("/", makeRouter(logger))
+	http.HandleFunc("/", router.MakeRouter(logger))
 
 	logger.Sugar().Info("Server started at port", conf.Addr)
 
